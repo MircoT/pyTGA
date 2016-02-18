@@ -1,5 +1,5 @@
 # pyTGA
-A simple Python module to manage **TGA** *images* This module is compatible with **Python 2** and **Python 3**.
+A simple Python module to manage **TGA** *images*. This module is compatible with **Python 2** and **Python 3**.
 
 The library supports at the moment these kind of formats:
 
