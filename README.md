@@ -57,12 +57,12 @@ def main():
     ##
     # Create from RGB data
     image = pyTGA.Image(data=data_rgb)
-    image.save("test_rgb")
+    image.save("Simply typergb")
 
     ##
     # Create from RGBA data
     image = pyTGA.Image(data=data_rgba)
-    image.save("test_rgba")
+    image.save("Simply typergba")
 
     ##
     # Load and modify an image
