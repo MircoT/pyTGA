@@ -89,5 +89,45 @@ class TestStringMethods(unittest.TestCase):
         os.remove("test_mod_rgba.tga")
         os.remove("test_mod_rgba_2.tga")
 
+    def test_original_format(self):
+        import pyTGA
+
+        data_rgba = [
+            [(0, 0, 0, 0), (255, 0, 0, 150), (0, 0, 0, 0), (0, 0, 0, 0)],
+            [(0, 0, 0, 0), (0, 0, 0, 0), (255, 0, 0, 150), (0, 0, 0, 0)],
+            [(255, 0, 0, 150), (255, 0, 0, 150),
+             (255, 0, 0, 150), (0, 0, 0, 0)]
+        ]
+
+        image = pyTGA.Image(data=data_rgba)
+        image.save("test_original_rgba", original_format=True)
+
+        image2 = pyTGA.Image()
+        image2.load("test_original_rgba.tga")
+
+        self.assertTrue(image2.is_original_format())
+
+        os.remove("test_original_rgba.tga")
+
+    def test_new_format(self):
+        import pyTGA
+
+        data_rgba = [
+            [(0, 0, 0, 0), (255, 0, 0, 150), (0, 0, 0, 0), (0, 0, 0, 0)],
+            [(0, 0, 0, 0), (0, 0, 0, 0), (255, 0, 0, 150), (0, 0, 0, 0)],
+            [(255, 0, 0, 150), (255, 0, 0, 150),
+             (255, 0, 0, 150), (0, 0, 0, 0)]
+        ]
+
+        image = pyTGA.Image(data=data_rgba)
+        image.save("test_new_format_rgba")
+
+        image2 = pyTGA.Image()
+        image2.load("test_new_format_rgba.tga")
+
+        self.assertFalse(image2.is_original_format())
+
+        os.remove("test_new_format_rgba.tga")
+
 if __name__ == '__main__':
     unittest.main()

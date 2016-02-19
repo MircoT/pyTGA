@@ -1,5 +1,5 @@
 # pyTGA
-A simple Python module to manage **TGA** *images*. This module is compatible with **Python 2** and **Python 3**.
+A simple Python module to manage **TGA** *images*. This module is compatible with **Python 2** and **Python 3** and we refer on the *New TGA Format*.
 
 The library supports at the moment these kind of formats:
 
@@ -63,6 +63,11 @@ def main():
     # Create from RGBA data
     image = pyTGA.Image(data=data_rgba)
     image.save("image_rgba")
+
+    ##
+    # Save in original format
+    image = pyTGA.Image(data=data_rgba)
+    image.save("image_rgba_original", original_format=True)
 
     ##
     # Load and modify an image

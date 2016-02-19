@@ -130,6 +130,26 @@ class TGAHeader(object):
         return tmp
 
 
+class TGAFooter(object):
+
+    def __init__(self):
+        self.extension_area_offset = 0  # 4 bytes
+        self.developer_directory_offset = 0  # 4 bytes
+        self.__signature = bytes(bytearray("TRUEVISION-XFILE".encode('ascii')))  # 16 bytes
+        self.__dot = bytes(bytearray('.'.encode('ascii')))  # 1 byte
+        self.__end = bytes(bytearray([0]))  # 1 byte
+
+    def to_bytes(self):
+        tmp = bytearray()
+
+        tmp += gen_byte(self.extension_area_offset, 4)
+        tmp += gen_byte(self.developer_directory_offset, 4)
+        tmp += self.__signature
+        tmp += self.__dot
+        tmp += self.__end
+
+        return tmp
+
 class ImageError(Exception):
 
     def __init__(self, msg, errname):
@@ -154,6 +174,8 @@ class Image(object):
         # Default values
         self._first_pixel = self.__top_left
         self._header = TGAHeader()
+        self._footer = TGAFooter()
+        self.__new_TGA_format = True
 
     def set_first_pixel_destination(self, dest):
         if dest.lower() == 'bl':
@@ -170,6 +192,9 @@ class Image(object):
                 'pixel_dest_position'
             )
 
+    def is_original_format(self):
+        return not self.__new_TGA_format
+
     def set_pixel(self, row, col, value):
         self._pixels[row][col] = value
         return self
@@ -182,6 +207,22 @@ class Image(object):
 
     def load(self, file_name):
         with open(file_name, "rb") as image_file:
+            # Check footer
+            image_file.seek(-26, 2)
+            self._footer.extension_area_offset = dec_byte(image_file.read(4), 4)
+            self._footer.developer_directory_offset = dec_byte(image_file.read(4), 4)
+            signature = image_file.read(16)
+            dot = image_file.read(1)
+            zero = dec_byte(image_file.read(1))
+
+            if signature == "TRUEVISION-XFILE".encode('ascii') and\
+                dot == ".".encode('ascii') and zero == 0:
+                    self.__new_TGA_format = True
+            else:
+                self.__new_TGA_format = False
+
+            # Read Header
+            image_file.seek(0)
             # ID LENGTH
             self._header.id_length = dec_byte(image_file.read(1))
             # COLOR MAP TYPE
@@ -224,7 +265,7 @@ class Image(object):
 
         return self
 
-    def save(self, file_name):
+    def save(self, file_name, original_format=False):
 
         # ID LENGTH
         self._header.id_length = 0
@@ -268,5 +309,8 @@ class Image(object):
                             image_file.write(gen_pixel_rgba(*pixel))
                         elif self._header.pixel_depht == 32:
                             image_file.write(gen_pixel_rgba(*pixel))
+
+            if self.__new_TGA_format and not original_format:
+                image_file.write(self._footer.to_bytes())
 
         return self
