@@ -129,5 +129,30 @@ class TestStringMethods(unittest.TestCase):
 
         os.remove("test_new_format_rgba.tga")
 
+    def test_test_16_bits(self):
+        import pyTGA
+
+        data_rgb = [
+            [(0, 0, 0), (255, 0, 0), (0, 0, 0), (0, 0, 0)],
+            [(0, 0, 0), (0, 0, 0), (255, 0, 0), (0, 0, 0)],
+            [(255, 0, 0), (255, 0, 0), (255, 0, 0), (0, 0, 0)]
+        ]
+
+        data_rgb_16 = [
+            [(0, 0, 0), (31, 0, 0), (0, 0, 0), (0, 0, 0)],
+            [(0, 0, 0), (0, 0, 0), (31, 0, 0), (0, 0, 0)],
+            [(31, 0, 0), (31, 0, 0), (31, 0, 0), (0, 0, 0)]
+        ]
+
+        image = pyTGA.Image(data=data_rgb)
+        image.save("test_16", force_16_bit=True)
+
+        image2 = pyTGA.Image()
+        image2.load("test_16.tga")
+
+        self.assertEqual(image2.get_pixels(), data_rgb_16)
+
+        os.remove("test_16.tga")
+
 if __name__ == '__main__':
     unittest.main()

@@ -45,6 +45,41 @@ def gen_pixel_rgba(c_r, c_g, c_b, alpha=None):
     return tmp
 
 
+def gen_pixel_rgb_16(c_r, c_g, c_b):
+    tmp = bytearray()
+
+    first_byte = 0b0
+    first_byte |= (c_r & 0b11111) << 3
+    first_byte |= (c_g & 0b11100) >> 2
+
+    second_byte = 0b0
+    second_byte |= (c_g & 0b00011) << 6
+    second_byte |= (c_b & 0b11111) << 1
+    ##
+    # alpha is not useful but
+    # is inserted like the standard whant
+    # - 1 : is visible
+    # - 0 : is not visible
+    #
+    second_byte |= 0b1
+
+    # little endian: RGB -> BGR
+    tmp += gen_byte(second_byte)
+    tmp += gen_byte(first_byte)
+
+    return tmp
+
+
+def get_rgb_from_16(second_byte, first_byte):
+    # Args are inverted because is little endian
+    c_r = (first_byte & 0b11111000) >> 3
+    c_g = (first_byte & 0b00000111) << 5
+    c_g |= (second_byte & 0b11000000) >> 6
+    c_b = (second_byte & 0b00111110) >> 1
+
+    return (c_r, c_g, c_b)
+
+
 class TGAHeader(object):
 
     def __init__(self):
@@ -88,10 +123,12 @@ class TGAHeader(object):
         #   - image_height  (2 bytes)
         #   - pixel_depht   (1 byte):
         #       - 8 bit  : grayscale
-        #       - 24 bit : RGB
-        #       - 32 bit : RGBA
+        #       - 16 bit : RGB (5-5-5-1) bit per color
+        #                  Last one is alpha (visible or not)
+        #       - 24 bit : RGB (8-8-8) bit per color
+        #       - 32 bit : RGBA (8-8-8-8) bit per color
         #   - image_descriptor (1 byte):
-        #       - bit 3-0 : number of attribute bits per pixel
+        #       - bit 3-0 : number of attribute bit per pixel
         #       - bit 5-4 : order in which pixel data is transferred
         #                   from the file to the screen
         #  +-----------------------------------+-------------+-------------+
@@ -135,7 +172,8 @@ class TGAFooter(object):
     def __init__(self):
         self.extension_area_offset = 0  # 4 bytes
         self.developer_directory_offset = 0  # 4 bytes
-        self.__signature = bytes(bytearray("TRUEVISION-XFILE".encode('ascii')))  # 16 bytes
+        self.__signature = bytes(
+            bytearray("TRUEVISION-XFILE".encode('ascii')))  # 16 bytes
         self.__dot = bytes(bytearray('.'.encode('ascii')))  # 1 byte
         self.__end = bytes(bytearray([0]))  # 1 byte
 
@@ -149,6 +187,7 @@ class TGAFooter(object):
         tmp += self.__end
 
         return tmp
+
 
 class ImageError(Exception):
 
@@ -209,15 +248,17 @@ class Image(object):
         with open(file_name, "rb") as image_file:
             # Check footer
             image_file.seek(-26, 2)
-            self._footer.extension_area_offset = dec_byte(image_file.read(4), 4)
-            self._footer.developer_directory_offset = dec_byte(image_file.read(4), 4)
+            self._footer.extension_area_offset = dec_byte(
+                image_file.read(4), 4)
+            self._footer.developer_directory_offset = dec_byte(
+                image_file.read(4), 4)
             signature = image_file.read(16)
             dot = image_file.read(1)
             zero = dec_byte(image_file.read(1))
 
             if signature == "TRUEVISION-XFILE".encode('ascii') and\
-                dot == ".".encode('ascii') and zero == 0:
-                    self.__new_TGA_format = True
+                    dot == ".".encode('ascii') and zero == 0:
+                self.__new_TGA_format = True
             else:
                 self.__new_TGA_format = False
 
@@ -249,14 +290,18 @@ class Image(object):
                         self._pixels[row].append(
                             dec_byte(image_file.read(1)))
                     elif self._header.image_type == 2:
-                        if self._header.pixel_depht == 24:
-                            c_b, c_g, c_r = dec_byte(
+                        if self._header.pixel_depht == 16:
+                            self._pixels[row].append(get_rgb_from_16(dec_byte(
+                                image_file.read(1)), dec_byte(
+                                image_file.read(1))))
+                        elif self._header.pixel_depht == 24:
+                            c_b, c_g, c_r=dec_byte(
                                 image_file.read(1)), dec_byte(
                                 image_file.read(1)), dec_byte(
                                 image_file.read(1))
                             self._pixels[row].append((c_r, c_g, c_b))
                         elif self._header.pixel_depht == 32:
-                            c_b, c_g, c_r, alpha = dec_byte(
+                            c_b, c_g, c_r, alpha=dec_byte(
                                 image_file.read(1)), dec_byte(
                                 image_file.read(1)), dec_byte(
                                 image_file.read(1)), dec_byte(
@@ -265,37 +310,43 @@ class Image(object):
 
         return self
 
-    def save(self, file_name, original_format=False):
+    def save(self, file_name, **kwargs):
+
+        original_format=kwargs.get('original_format', False)
+        force_16_bit=kwargs.get('force_16_bit', False)
 
         # ID LENGTH
-        self._header.id_length = 0
+        self._header.id_length=0
         # COLOR MAP TYPE
-        self._header.color_map_type = 0
+        self._header.color_map_type=0
         # COLOR MAP SPECIFICATION
-        self._header.first_entry_index = 0
-        self._header.color_map_length = 0
-        self._header.color_map_entry_size = 0
+        self._header.first_entry_index=0
+        self._header.color_map_length=0
+        self._header.color_map_entry_size=0
         # IMAGE SPECIFICATION
-        self._header.x_origin = 0
-        self._header.y_origin = 0
-        self._header.image_width = len(self._pixels[0])
-        self._header.image_height = len(self._pixels)
-        self._header.image_descriptor = 0b0 | self._first_pixel
+        self._header.x_origin=0
+        self._header.y_origin=0
+        self._header.image_width=len(self._pixels[0])
+        self._header.image_height=len(self._pixels)
+        self._header.image_descriptor=0b0 | self._first_pixel
 
         ##
         # IMAGE TYPE
         # IMAGE SPECIFICATION (pixel_depht)
-        tmp_pixel = self._pixels[0][0]
+        tmp_pixel=self._pixels[0][0]
         if type(tmp_pixel) == int:
-            self._header.image_type = 3
-            self._header.pixel_depht = 8
+            self._header.image_type=3
+            self._header.pixel_depht=8
         elif type(tmp_pixel) == tuple:
+            self._header.image_type=2
             if len(tmp_pixel) == 3:
-                self._header.image_type = 2
-                self._header.pixel_depht = 24
+                if not force_16_bit:
+                    self._header.pixel_depht=24
+                else:
+                    self._header.pixel_depht=16
             elif len(tmp_pixel) == 4:
-                self._header.image_type = 2
-                self._header.pixel_depht = 32
+                self._header.pixel_depht=32
+
 
         with open("{0:s}.tga".format(file_name), "wb") as image_file:
             image_file.write(self._header.to_bytes())
@@ -305,10 +356,13 @@ class Image(object):
                     if self._header.image_type == 3:
                         image_file.write(gen_byte(pixel))
                     elif self._header.image_type == 2:
-                        if self._header.pixel_depht == 24:
+                        if self._header.pixel_depht == 16:
+                            image_file.write(gen_pixel_rgb_16(*pixel))
+                        elif self._header.pixel_depht == 24:
                             image_file.write(gen_pixel_rgba(*pixel))
                         elif self._header.pixel_depht == 32:
                             image_file.write(gen_pixel_rgba(*pixel))
+
 
             if self.__new_TGA_format and not original_format:
                 image_file.write(self._footer.to_bytes())

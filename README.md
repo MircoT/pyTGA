@@ -4,6 +4,7 @@ A simple Python module to manage **TGA** *images*. This module is compatible wit
 The library supports at the moment these kind of formats:
 
 * Uncompressed Grayscale - 8 bit depth
+* Uncompressed RGB - 16 bit depth
 * Uncompressed RGB - 24 bit depth
 * Uncompressed RGBA - 32 bit depth
 
