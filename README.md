@@ -71,6 +71,21 @@ def main():
     image.save("image_rgba_original", original_format=True)
 
     ##
+    # Save with 16 bit depth
+    # You can start also from RGB, but you will lose data
+    image = pyTGA.Image(data=data_rgb)
+    image.save("test_16", force_16_bit=True)
+
+    data_rgb_16 = [
+            [(0, 0, 0), (31, 0, 0), (0, 0, 0), (0, 0, 0)],
+            [(0, 0, 0), (0, 0, 0), (31, 0, 0), (0, 0, 0)],
+            [(31, 0, 0), (31, 0, 0), (31, 0, 0), (0, 0, 0)]
+        ]
+
+    image = pyTGA.Image(data=data_rgb_16)
+    image.save("test_16", force_16_bit=True)
+
+    ##
     # Load and modify an image
     image = pyTGA.Image()
     image.load("image_black_and_white.tga").set_pixel(0, 3, 175)
