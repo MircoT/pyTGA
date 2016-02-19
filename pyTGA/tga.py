@@ -222,7 +222,7 @@ class Image(object):
                                 image_file.read(1))
                             self._pixels[row].append((c_r, c_g, c_b, alpha))
 
-            return self
+        return self
 
     def save(self, file_name):
 
