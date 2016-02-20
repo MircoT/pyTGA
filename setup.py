@@ -14,6 +14,7 @@ if __name__ == "__main__":
         author='Mirco Tracolli',
         author_email='mirco.theone@gmail.com',
         url='https://github.com/MircoT/pyTGA',
+        download_url='https://github.com/MircoT/pyTGA/releases/latest',
 
         # Choose your license
         license='MIT',
