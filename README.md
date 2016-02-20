@@ -24,6 +24,10 @@ cd test
 python test_module.py
 ```
 
+## Contributing
+
+Contributions are welcome, so please feel free to fix bugs, improve things, provide documentation. For anything submit a personal message or fork the project to make a pull request and so on... thanks!
+
 ## Example
 
 ```python
