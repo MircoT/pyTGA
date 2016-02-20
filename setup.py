@@ -13,13 +13,14 @@ if __name__ == "__main__":
         # Author details
         author='Mirco Tracolli',
         author_email='mirco.theone@gmail.com',
+        url='https://github.com/MircoT/pyTGA'
 
         # Choose your license
         license='MIT',
 
         # https://pypi.python.org/pypi?%3Aaction=list_classifiers
         classifiers=[
-            'Development Status :: 3 - Alpha',
+            'Development Status :: 5 - Production/Stable',
 
             'Intended Audience :: Developers',
             'Intended Audience :: Education',
