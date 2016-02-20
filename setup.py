@@ -13,7 +13,7 @@ if __name__ == "__main__":
         # Author details
         author='Mirco Tracolli',
         author_email='mirco.theone@gmail.com',
-        url='https://github.com/MircoT/pyTGA'
+        url='https://github.com/MircoT/pyTGA',
 
         # Choose your license
         license='MIT',
