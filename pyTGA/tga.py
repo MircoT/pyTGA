@@ -9,6 +9,16 @@ VERSION = "1.0.0"
 
 
 def dec_byte(data, size=1, endian='little'):
+    """Decode some data from bytes.
+
+    Args:
+        data (bytes): data to decode
+        size (int): number of bites of the data
+        endian (string): can be 'little' or 'big'
+
+    Returns:
+        int: the decoded data
+    """
     if endian == 'little':
         data = bytes(bytearray(reversed(data)))
 
@@ -23,10 +33,31 @@ def dec_byte(data, size=1, endian='little'):
 
 
 def multiple_dec_byte(stream, num, size=1, endian='little'):
+    """Decode multiple data of the same size from a file.
+
+    Args:
+        stream (file): an IO file stream
+        num (int): number of same data to decode
+        size (int): size in bytes of the data
+        endian (string): can be 'little' or 'big'
+
+    Returns:
+        list[num]: all the data decoded
+    """
     return [dec_byte(stream.read(size), size, endian) for number in range(num)]
 
 
 def gen_byte(data, size=1, endian='little'):
+    """Generate bytes from data.
+
+    Args:
+        data (int): data to encode
+        size (int): size in bytes of the data
+        endian (string): can be 'little' or 'big'
+
+    Returns:
+        bytes[size]: conversion of the data in bytes
+    """
     _list = []
     mask = 255  # 11111111
 
@@ -40,6 +71,19 @@ def gen_byte(data, size=1, endian='little'):
 
 
 def gen_pixel_rgba(c_r, c_g, c_b, alpha=None):
+    """Generate an RGBA pixel:
+
+    Args:
+        c_r (int): red color value (0-255)
+        c_g (int): green color value (0-255)
+        c_b (int): blue color value (0-255)
+        alpha (int): transparency of the color (0-255, default: None)
+
+    Returns:
+        bytes[3-4]: the conversion of the color in bytes
+
+        If alpha is None the result color will be an RGB.
+    """
     tmp = bytearray()
 
     # little endian: RGB -> BGR
@@ -53,6 +97,19 @@ def gen_pixel_rgba(c_r, c_g, c_b, alpha=None):
 
 
 def gen_pixel_rgb_16(c_r, c_g, c_b):
+    """Generate an RGB pixel of 16 bit:
+
+    Args:
+        c_r (int): red color value (0-31)
+        c_g (int): green color value (0-31)
+        c_b (int): blue color value (0-31)
+
+    Returns:
+        bytes[2]: the conversion of the color in 2 bytes (16 bit)
+
+        If the ranges of the color are greater then 31 the information will be
+        cutted.
+    """
     tmp = bytearray()
 
     first_byte = 0b0
@@ -78,6 +135,15 @@ def gen_pixel_rgb_16(c_r, c_g, c_b):
 
 
 def get_rgb_from_16(second_byte, first_byte):
+    """Construct an RGB color from 16 bit of data.
+
+    Args:
+        second_byte (bytes): the first bytes read
+        first_byte (bytes): the second bytes read
+
+    Returns:
+        tuple(int, int, int): the RGB color
+    """
     # Args are inverted because is little endian
     c_r = (first_byte & 0b11111000) >> 3
     c_g = (first_byte & 0b00000111) << 5
@@ -89,20 +155,24 @@ def get_rgb_from_16(second_byte, first_byte):
 
 class TGAHeader(object):
 
+    """Header object for TGA files."""
+
     def __init__(self):
-        ##
+        """Initialize all fields.
+
+        Here we have some details for each field:
+
+        ## Field(1)
         # ID LENGTH (1 byte):
         #   Number of bites of field 6, max 255.
         #   Is 0 if no image id is present.
         #
-        self.id_length = 0
-        ##
+        ## Field(2)
         # COLOR MAP TYPE (1 byte):
         #   - 0 : no color map included with the image
         #   - 1 : color map included with the image
         #
-        self.color_map_type = 0
-        ##
+        ## Field(3)
         # IMAGE TYPE (1 byte):
         #   - 0  : no data included
         #   - 1  : uncompressed color map image
@@ -112,17 +182,13 @@ class TGAHeader(object):
         #   - 10 : run-length encoded true color image
         #   - 11 : run-length encoded black and white image
         #
-        self.image_type = 0
-        ##
+        ## Field(4)
         # COLOR MAP SPECIFICATION (5 bytes):
         #   - first_entry_index (2 bytes) : index of first color map entry
         #   - color_map_length  (2 bytes)
         #   - color_map_entry_size (1 byte)
         #
-        self.first_entry_index = 0
-        self.color_map_length = 0
-        self.color_map_entry_size = 0
-        ##
+        ##  Field(5)
         # IMAGE SPECIFICATION (10 bytes):
         #   - x_origin  (2 bytes)
         #   - y_origin  (2 bytes)
@@ -148,6 +214,18 @@ class TGAHeader(object):
         #  +-----------------------------------+-------------+-------------+
         #       - bit 7-6 : must be zero to insure future compatibility
         #
+        """
+        # Field(1)
+        self.id_length = 0
+        # Field(2)
+        self.color_map_type = 0
+        # Field(3)
+        self.image_type = 0
+        # Field(4)
+        self.first_entry_index = 0
+        self.color_map_length = 0
+        self.color_map_entry_size = 0
+        # Field(5)
         self.x_origin = 0
         self.y_origin = 0
         self.image_width = 0
@@ -156,6 +234,10 @@ class TGAHeader(object):
         self.image_descriptor = 0
 
     def to_bytes(self):
+        """Convert the object to bytes.
+
+        Returns:
+            bytes: the conversion in bytes"""
         tmp = bytearray()
 
         tmp += gen_byte(self.id_length)
@@ -176,7 +258,10 @@ class TGAHeader(object):
 
 class TGAFooter(object):
 
+    """Footer object for TGA files."""
+
     def __init__(self):
+        """Initialize all fields."""
         self.extension_area_offset = 0  # 4 bytes
         self.developer_directory_offset = 0  # 4 bytes
         self.__signature = bytes(
@@ -185,6 +270,11 @@ class TGAFooter(object):
         self.__end = bytes(bytearray([0]))  # 1 byte
 
     def to_bytes(self):
+        """Convert the object to bytes.
+
+        Returns:
+            bytes: the conversion in bytes
+        """
         tmp = bytearray()
 
         tmp += gen_byte(self.extension_area_offset, 4)
@@ -197,6 +287,8 @@ class TGAFooter(object):
 
 
 class ImageError(Exception):
+
+    """Error of the Image class."""
 
     def __init__(self, msg, errname):
         super(ImageError, self).__init__(msg)
@@ -212,7 +304,19 @@ class ImageError(Exception):
 
 class Image(object):
 
+    """Main object to manage TGA images."""
+
     def __init__(self, data=None):
+        """Initialize the image.
+
+        Args:
+            data (list of list): data is an array of array that contains pixels.
+                For more details on data go to 'check' function.
+
+        Returns:
+            Image
+
+        """
         self._pixels = None
 
         if data is not None:
@@ -233,6 +337,35 @@ class Image(object):
 
     @staticmethod
     def check(data):
+        """Control if data are a valid list of pixels.
+
+        Pixels can be of 3 types:
+            * black and white -> int
+            * RGB -> (int, int, int)
+            * RGBA -> (int, int, int, int)
+
+        Args:
+            data (list of list): data is an array of array that contains pixels.
+
+        Example:
+            data = [
+                [1, 2, 3],
+                [1, 2, 3],
+                [1, 2, 3]
+            ]
+
+            data = [
+                [(42, 0, 0), (0, 0, 0), (160, 0, 0)],
+                [(0, 0, 0), (0, 10, 0), (0, 0, 0)],
+                [(0, 0, 255), (0, 0, 0), (0, 0, 0)],
+            ]
+
+        Returns:
+            None
+
+        Raises:
+            ImageError
+        """
         tmp_len = len(data[0])
         row_num = 0
         for row in data:
@@ -257,6 +390,23 @@ class Image(object):
                     )
 
     def set_first_pixel_destination(self, dest):
+        """Change the destination of first pixel.
+
+        Possible values:
+        * 'bl' (string): bottom left
+        * 'br' (string): bottom right
+        * 'tl' (string): top left
+        * 'tr' (string): top right
+
+        Args:
+            dest (string): destination of the first pixel
+
+        Returns:
+            Image
+
+        Raises:
+            ImageError
+        """
         if dest.lower() == 'bl':
             self._first_pixel = self.__bottom_left
             return self
@@ -276,19 +426,62 @@ class Image(object):
             )
 
     def is_original_format(self):
+        """Control if the image is old style.
+
+        Returns:
+            bool: if the image is in new TGA format
+        """
         return not self.__new_TGA_format
 
     def set_pixel(self, row, col, value):
+        """Change a pixel.
+
+        Args:
+            row (int): number of the row (starts from 0)
+            col (int): number of the column (starts from 0)
+            value (int-tuple): the pixel value. See 'check' function for more
+                detail son pixels.
+
+        Returns:
+            Image
+        """
         self._pixels[row][col] = value
         return self
 
     def get_pixel(self, row, col):
+        """Retreive a pixel.
+
+        Args:
+            row (int): number of the row (starts from 0)
+            col (int): number of the column (starts from 0)
+
+        Returns:
+            int-tuple: the pixel selected. See 'check' function for more
+                detail son pixels.
+        """
         return self._pixels[row][col]
 
     def get_pixels(self):
+        """Extract data.
+
+        Returns:
+            list: all the pixels of the image. See 'check' function for more
+                detail son pixels.
+        """
         return self._pixels
 
     def load(self, file_name):
+        """Open a TGA image.
+
+        Args:
+            file_name (string): the name of the TGA image
+
+        Returns:
+            Image
+
+        Raises:
+            ImageError
+        """
         with open(file_name, "rb") as image_file:
             # Check footer
             image_file.seek(-26, 2)
@@ -424,6 +617,18 @@ class Image(object):
 
     def save(self, file_name, original_format=False, force_16_bit=False,
              compress=False):
+        """Save the image as a TGA file.
+
+        Args:
+            file_name (string): the name with which you want to save
+            original_format (bool): save or not in olt TGA format (< 2.0)
+            force_16_bit (bool): save the image with 16 bit depth
+            compress (bool): compress the image with RLE or not
+
+        Returns:
+            Image
+
+        """
         # ID LENGTH
         self._header.id_length = 0
         # COLOR MAP TYPE
@@ -516,6 +721,18 @@ class Image(object):
 
     @staticmethod
     def _encode(row):
+        """Econde a row of pixels.
+
+        This function is a generator used during the compression phase. More
+        information on packets generated are after returns section.
+
+        Args:
+            row (list): a list of pixels. See 'check' function for more details
+
+        Returns:
+            tuple: repetition_count and pixel_value of the current compression
+                in the given row
+
         ##
         # Run-length encoded (RLE) images comprise two types of data
         # elements:Run-length Packets and Raw Packets.
@@ -585,6 +802,7 @@ class Image(object):
         # |   0   |  3 (num pixel - 1) |             |             |             |             |
         # +----------------------------+-------------+-------------+-------------+-------------+
         #
+        """
         repetition_count = None
         pixel_value = None
         ##
