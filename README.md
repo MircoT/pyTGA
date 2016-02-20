@@ -1,12 +1,12 @@
 # pyTGA
 A simple Python module to manage **TGA** *images*. This module is compatible with **Python 2** and **Python 3** and we refer on the *New TGA Format*.
 
-The library supports at the moment these kind of formats:
+The library supports at the moment these kind of formatsc (compressed with *RLE* or uncompressed):
 
-* Uncompressed Grayscale - 8 bit depth
-* Uncompressed RGB - 16 bit depth
-* Uncompressed RGB - 24 bit depth
-* Uncompressed RGBA - 32 bit depth
+* Grayscale - 8 bit depth
+* RGB - 16 bit depth
+* RGB - 24 bit depth
+* RGBA - 32 bit depth
 
 As you can see in the example you can use the python basic types for data.
 
@@ -66,6 +66,11 @@ def main():
     image.save("image_rgba")
 
     ##
+    # Save with RLE compression
+    image = pyTGA.Image(data=data_rgba)
+    image.save("image_rgba_compressed", compress=True)
+
+    ##
     # Save in original format
     image = pyTGA.Image(data=data_rgba)
     image.save("image_rgba_original", original_format=True)
@@ -77,13 +82,13 @@ def main():
     image.save("test_16", force_16_bit=True)
 
     data_rgb_16 = [
-            [(0, 0, 0), (31, 0, 0), (0, 0, 0), (0, 0, 0)],
-            [(0, 0, 0), (0, 0, 0), (31, 0, 0), (0, 0, 0)],
-            [(31, 0, 0), (31, 0, 0), (31, 0, 0), (0, 0, 0)]
-        ]
+        [(0, 0, 0), (31, 0, 0), (0, 0, 0), (0, 0, 0)],
+        [(0, 0, 0), (0, 0, 0), (31, 0, 0), (0, 0, 0)],
+        [(31, 0, 0), (31, 0, 0), (31, 0, 0), (0, 0, 0)]
+    ]
 
     image = pyTGA.Image(data=data_rgb_16)
-    image.save("test_16", force_16_bit=True)
+    image.save("image_16_bit", force_16_bit=True)
 
     ##
     # Load and modify an image

@@ -1,10 +1,11 @@
 from setuptools import setup, find_packages
+import pyTGA
 
 if __name__ == "__main__":
     setup(
         name="pyTGA",
 
-        version='0.0.1',
+        version=pyTGA.VERSION,
 
         description='A simple Python module to manage TGA images',
         long_description='A simple Python module to manage TGA images',
