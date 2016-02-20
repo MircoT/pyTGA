@@ -7,8 +7,8 @@ if __name__ == "__main__":
 
         version=pyTGA.VERSION,
 
-        description='A simple Python module to manage TGA images',
-        long_description='A simple Python module to manage TGA images',
+        description='A pure Python module to manage TGA images',
+        long_description='A pure Python module to manage TGA images',
 
         # Author details
         author='Mirco Tracolli',
