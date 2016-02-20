@@ -1,7 +1,7 @@
 # pyTGA
 A simple Python module to manage **TGA** *images*. This module is compatible with **Python 2** and **Python 3** and we refer on the *New TGA Format*.
 
-The library supports at the moment these kind of formatsc (compressed with *RLE* or uncompressed):
+The library supports these kind of formats (compressed with *RLE* or uncompressed):
 
 * Grayscale - 8 bit depth
 * RGB - 16 bit depth
