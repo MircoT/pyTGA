@@ -1,6 +1,7 @@
 from __future__ import unicode_literals, print_function
 from sys import version_info
 from copy import deepcopy
+from struct import pack, unpack
 
 __all__ = ["Image", "ImageError", "VERSION"]
 
@@ -8,66 +9,53 @@ __all__ = ["Image", "ImageError", "VERSION"]
 VERSION = "1.0.0"
 
 
-def dec_byte(data, size=1, endian='little'):
+def dec_byte(data, size=1, littleEndian=True):
     """Decode some data from bytes.
 
     Args:
         data (bytes): data to decode
         size (int): number of bites of the data
-        endian (string): can be 'little' or 'big'
+        littleEndian (bool): little endian or big endian
 
     Returns:
         int: the decoded data
     """
-    if endian == 'little':
-        data = bytes(bytearray(reversed(data)))
+    order = '<' if littleEndian else '>'
+    format_ = (None, 'B', 'H', None, 'I')[size]
 
-    res = 0b0
-    for step in range(size):
-        if version_info[0] < 3:
-            res = res << 8*step | int(data[step].encode("hex"), 16)
-        else:
-            res = res << 8*step | data[step]
-
-    return res
+    return unpack(order + format_, data)[0]
 
 
-def multiple_dec_byte(stream, num, size=1, endian='little'):
+def multiple_dec_byte(stream, num, size=1, littleEndian=True):
     """Decode multiple data of the same size from a file.
 
     Args:
         stream (file): an IO file stream
         num (int): number of same data to decode
         size (int): size in bytes of the data
-        endian (string): can be 'little' or 'big'
+        littleEndian (bool): little endian or big endian
 
     Returns:
         list[num]: all the data decoded
     """
-    return [dec_byte(stream.read(size), size, endian) for number in range(num)]
+    return [dec_byte(stream.read(size), size, littleEndian) for number in range(num)]
 
 
-def gen_byte(data, size=1, endian='little'):
+def gen_byte(data, size=1, littleEndian=True):
     """Generate bytes from data.
 
     Args:
         data (int): data to encode
         size (int): size in bytes of the data
-        endian (string): can be 'little' or 'big'
+        littleEndian (bool): little endian or big endian
 
     Returns:
         bytes[size]: conversion of the data in bytes
     """
-    _list = []
-    mask = 255  # 11111111
+    order = '<' if littleEndian else '>'
+    format_ = (None, 'B', 'H', None, 'I')[size]
 
-    for step in reversed(range(size)):
-        _list.append((data & (mask << 8*step)) >> 8*step)
-
-    if endian == 'little':
-        _list = list(reversed(_list))
-
-    return bytes(bytearray(_list))
+    return pack(order + format_, data)
 
 
 def gen_pixel_rgba(c_r, c_g, c_b, alpha=None):
@@ -84,16 +72,10 @@ def gen_pixel_rgba(c_r, c_g, c_b, alpha=None):
 
         If alpha is None the result color will be an RGB.
     """
-    tmp = bytearray()
-
-    # little endian: RGB -> BGR
-    tmp += gen_byte(c_b)
-    tmp += gen_byte(c_g)
-    tmp += gen_byte(c_r)
     if alpha is not None:
-        tmp += gen_byte(alpha)
-
-    return tmp
+        return pack('<I', alpha << 24 | c_r << 16 | c_g << 8 | c_b)
+    else:
+        return pack('<BBB', c_b, c_g, c_r)
 
 
 def gen_pixel_rgb_16(c_r, c_g, c_b):
@@ -110,31 +92,23 @@ def gen_pixel_rgb_16(c_r, c_g, c_b):
         If the ranges of the color are greater then 31 the information will be
         cutted.
     """
-    tmp = bytearray()
-
-    first_byte = 0b0
-    first_byte |= (c_r & 0b11111) << 3
-    first_byte |= (c_g & 0b11100) >> 2
-
-    second_byte = 0b0
-    second_byte |= (c_g & 0b00011) << 6
-    second_byte |= (c_b & 0b11111) << 1
+    mask = 0b11111
+    tmp = 0b0
+    tmp |= (c_r & mask) << 11
+    tmp |= (c_g & mask) << 6
+    tmp |= (c_b & mask) << 1
     ##
     # alpha is not useful but
     # is inserted like the standard whant
     # - 1 : is visible
     # - 0 : is not visible
     #
-    second_byte |= 0b1
+    tmp |= 0b1
 
-    # little endian: RGB -> BGR
-    tmp += gen_byte(second_byte)
-    tmp += gen_byte(first_byte)
-
-    return tmp
+    return pack('<H', tmp)
 
 
-def get_rgb_from_16(second_byte, first_byte):
+def get_rgb_from_16(data):
     """Construct an RGB color from 16 bit of data.
 
     Args:
@@ -145,10 +119,9 @@ def get_rgb_from_16(second_byte, first_byte):
         tuple(int, int, int): the RGB color
     """
     # Args are inverted because is little endian
-    c_r = (first_byte & 0b11111000) >> 3
-    c_g = (first_byte & 0b00000111) << 5
-    c_g |= (second_byte & 0b11000000) >> 6
-    c_b = (second_byte & 0b00111110) >> 1
+    c_r = (data & 0b1111100000000000) >> 11
+    c_g = (data & 0b0000011111000000) >> 6
+    c_b = (data & 0b111110) >> 1
 
     return (c_r, c_g, c_b)
 
@@ -530,10 +503,8 @@ class Image(object):
                                 dec_byte(image_file.read(1)))
                         elif self._header.image_type == 2:
                             if self._header.pixel_depht == 16:
-                                first_b, second_b = multiple_dec_byte(
-                                    image_file, 2)
                                 self._pixels[row].append(
-                                    get_rgb_from_16(first_b, second_b))
+                                    get_rgb_from_16(dec_byte(image_file.read(2), 2)))
                             elif self._header.pixel_depht == 24:
                                 c_b, c_g, c_r = multiple_dec_byte(
                                     image_file, 3)
@@ -568,9 +539,8 @@ class Image(object):
                             pixel = dec_byte(image_file.read(1))
                         elif self._header.image_type == 10:
                             if self._header.pixel_depht == 16:
-                                first_b, second_b = multiple_dec_byte(
-                                    image_file, 2)
-                                pixel = get_rgb_from_16(first_b, second_b)
+                                pixel = get_rgb_from_16(
+                                    dec_byte(image_file.read(2), 2))
                             elif self._header.pixel_depht == 24:
                                 c_b, c_g, c_r = multiple_dec_byte(
                                     image_file, 3)
@@ -594,10 +564,8 @@ class Image(object):
                                     dec_byte(image_file.read(1)))
                             elif self._header.image_type == 10:
                                 if self._header.pixel_depht == 16:
-                                    first_b, second_b = multiple_dec_byte(
-                                        image_file, 2, 1)
                                     self._pixels[-1].append(
-                                        get_rgb_from_16(first_b, second_b))
+                                        get_rgb_from_16(dec_byte(image_file.read(2), 2)))
                                 elif self._header.pixel_depht == 24:
                                     c_b, c_g, c_r = multiple_dec_byte(
                                         image_file, 3, 1)
