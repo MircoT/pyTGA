@@ -526,13 +526,15 @@ class Image(object):
             elif self._header.image_type == 10 or\
                     self._header.image_type == 11:
                 self._pixels.append([])
-                while len(self._pixels) != self._header.image_height or\
-                        len(self._pixels[-1]) != self._header.image_width:
+                tot_pixels = self._header.image_height * self._header.image_width
+                pixel_count = 0
+                while pixel_count != tot_pixels:
                     if len(self._pixels[-1]) == self._header.image_width:
                         self._pixels.append([])
                     repetition_count = dec_byte(image_file.read(1))
                     RLE = (repetition_count & 0b10000000) >> 7 == 1
                     count = (repetition_count & 0b01111111) + 1
+                    pixel_count += count
                     if RLE:
                         pixel = None
                         if self._header.image_type == 11:
