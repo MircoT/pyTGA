@@ -6,7 +6,7 @@ from struct import pack, unpack
 __all__ = ["Image", "ImageError", "VERSION"]
 
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 def dec_byte(data, size=1, littleEndian=True):
