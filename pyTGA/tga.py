@@ -3,6 +3,8 @@ from sys import version_info
 from copy import deepcopy
 from struct import pack, unpack
 
+import re
+
 __all__ = ["Image", "ImageError", "VERSION"]
 
 
@@ -356,7 +358,8 @@ class Image(object):
                             "'{0}' is not a valid pixel tuple".format(pixel),
                             'bad_pixel_length'
                         )
-                elif type(pixel) != int:
+                elif type(pixel) != int and not re.match('.*numpy\.[u]?int(8|16|32|64)',
+                                                         str(type(pixel))):
                     raise ImageError(
                         "'{0}' is not a valid pixel value".format(pixel),
                         'bad_pixel_value'
