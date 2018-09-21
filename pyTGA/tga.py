@@ -8,7 +8,7 @@ import re
 __all__ = ["Image", "ImageError", "VERSION"]
 
 
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 
 def dec_byte(data, size=1, littleEndian=True):
