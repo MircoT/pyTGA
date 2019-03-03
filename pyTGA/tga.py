@@ -8,7 +8,7 @@ import re
 __all__ = ["Image", "ImageError", "VERSION"]
 
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 
 
 def dec_byte(data, size=1, littleEndian=True):
@@ -22,8 +22,8 @@ def dec_byte(data, size=1, littleEndian=True):
     Returns:
         int: the decoded data
     """
-    order = '<' if littleEndian else '>'
-    format_ = (None, 'B', 'H', None, 'I')[size]
+    order = str('<' if littleEndian else '>')
+    format_ = str((None, 'B', 'H', None, 'I')[size])
 
     return unpack(order + format_, data)[0]
 
@@ -54,8 +54,8 @@ def gen_byte(data, size=1, littleEndian=True):
     Returns:
         bytes[size]: conversion of the data in bytes
     """
-    order = '<' if littleEndian else '>'
-    format_ = (None, 'B', 'H', None, 'I')[size]
+    order = str('<' if littleEndian else '>')
+    format_ = str((None, 'B', 'H', None, 'I')[size])
 
     return pack(order + format_, data)
 
