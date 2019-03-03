@@ -433,7 +433,7 @@ class Image(object):
 
         Returns:
             int-tuple: the pixel selected. See 'check' function for more
-                detail son pixels.
+                details on pixels.
         """
         return self._pixels[row][col]
 
@@ -442,7 +442,7 @@ class Image(object):
 
         Returns:
             list: all the pixels of the image. See 'check' function for more
-                detail son pixels.
+                details on pixels.
         """
         return self._pixels
 
