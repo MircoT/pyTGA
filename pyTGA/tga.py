@@ -1,14 +1,14 @@
-from __future__ import unicode_literals, print_function
-from sys import version_info
-from copy import deepcopy
-from struct import pack, unpack
+from __future__ import print_function, unicode_literals
 
+import io
 import re
+from struct import pack, unpack
+from sys import version_info
 
 __all__ = ["Image", "ImageError", "VERSION"]
 
 
-VERSION = "1.0.4"
+VERSION = "1.1.0"
 
 
 def dec_byte(data, size=1, littleEndian=True):
@@ -137,17 +137,17 @@ class TGAHeader(object):
 
         Here we have some details for each field:
 
-        ## Field(1)
+        #- Field(1)
         # ID LENGTH (1 byte):
         #   Number of bites of field 6, max 255.
         #   Is 0 if no image id is present.
         #
-        ## Field(2)
+        #- Field(2)
         # COLOR MAP TYPE (1 byte):
         #   - 0 : no color map included with the image
         #   - 1 : color map included with the image
         #
-        ## Field(3)
+        #- Field(3)
         # IMAGE TYPE (1 byte):
         #   - 0  : no data included
         #   - 1  : uncompressed color map image
@@ -157,13 +157,13 @@ class TGAHeader(object):
         #   - 10 : run-length encoded true color image
         #   - 11 : run-length encoded black and white image
         #
-        ## Field(4)
+        #- Field(4)
         # COLOR MAP SPECIFICATION (5 bytes):
         #   - first_entry_index (2 bytes) : index of first color map entry
         #   - color_map_length  (2 bytes)
         #   - color_map_entry_size (1 byte)
         #
-        ##  Field(5)
+        #- Field(5)
         # IMAGE SPECIFICATION (10 bytes):
         #   - x_origin  (2 bytes)
         #   - y_origin  (2 bytes)
@@ -277,6 +277,120 @@ class ImageError(Exception):
         self.errno = error_map.get(errname, None)
 
 
+MATRIX_TYPE = {
+    'BW': "B",
+    'RGB': "BBB",
+    'RGBA': "BBBB"
+}
+
+
+class RowBuffer(object):
+
+    def __init__(self, data, row_size, type_=MATRIX_TYPE['BW']):
+        self.__data = data
+        self.__start_pos = self.__data.tell()
+        self.__elm_size = len(type_)
+        self.__row_size = row_size
+        self.__type = type_
+        self.__index = -1
+
+    def __getitem__(self, index):
+        self.__data.seek(self.__start_pos + index * self.__elm_size)
+        data = self.__data.read(self.__elm_size)
+        result = unpack(str("<") + self.__type, data)
+        return result if len(result) > 1 else result[0]
+
+    def set_pixel(self, index, value):
+        self.__data.seek(self.__start_pos + index * self.__elm_size)
+        if self.__elm_size == 1:
+            self.__data.write(pack(str('<') + str(self.__type), value))
+        else:
+            self.__data.write(pack(str('<') + str(self.__type), *value))
+
+    def __len__(self):
+        return self.__row_size
+
+    def __iter__(self):
+        self.__index = -1
+        return self
+
+    def __next__(self):
+        self.__index += 1
+        if self.__index < self.__row_size:
+            return self[self.__index]
+        raise StopIteration
+
+
+class PixelMatrix(object):
+
+    def __init__(self, data=None, height=640, width=480, type_=MATRIX_TYPE['BW']):
+        self.__height = len(data) if data is not None else height
+        self.__width = len(data[0]) if data is not None else width
+        self.__row_length = self.__width * len(type_)
+        self.__type = type_
+        self.__buffer = io.BytesIO()
+        self.__index = -1
+        if data is not None:
+            if isinstance(data, list):
+                if isinstance(data[0][0], int):
+                    elm_size = 1
+                else:
+                    elm_size = len(data[0][0])
+
+                if elm_size == 1:
+                    self.__type = MATRIX_TYPE['BW']
+                elif elm_size == 3:
+                    self.__type = MATRIX_TYPE['RGB']
+                elif elm_size == 4:
+                    self.__type = MATRIX_TYPE['RGBA']
+                else:
+                    raise Exception(
+                        "Data not compatible with BW, RGB or RGBA format, tuple has lenght {}".format(elm_size))
+                self.__row_length = self.__width * len(self.__type)
+                self.__buffer_from_data(data)
+
+    def __buffer_from_data(self, data):
+        if self.__type == MATRIX_TYPE['BW']:
+            self.__buffer.write(
+                pack(str('<') + str(self.__type)*self.__width*self.__height, *[
+                    value for row in data for value in row
+                ])
+            )
+        else:
+            self.__buffer.write(
+                pack(str('<') + str(self.__type)*self.__width*self.__height, *[
+                    value for row in data for column in row for value in column
+                ])
+            )
+        self.__buffer.seek(0)
+
+    def __call__(self):
+        self.__buffer.seek(0)
+        return self.__buffer.read()
+
+    def __len__(self):
+        return self.__height
+
+    def __iter__(self):
+        self.__index = -1
+        return self
+
+    def __next__(self):
+        self.__index += 1
+        if self.__index < self.__height:
+            return self[self.__index]
+        raise StopIteration
+
+    def __getitem__(self, index):
+        self.__buffer.seek(0)
+        self.__buffer.seek(index * self.__row_length)
+        return RowBuffer(
+            self.__buffer,
+            self.__width,
+            self.__type,
+        )
+
+
 class Image(object):
 
     """Main object to manage TGA images."""
@@ -296,7 +410,7 @@ class Image(object):
 
         if data is not None:
             self.check(data)
-            self._pixels = deepcopy(data)
+            self._pixels = PixelMatrix(data)
 
         # Screen destination of first pixel
         self.__bottom_left = 0b0
@@ -314,10 +428,10 @@ class Image(object):
     def check(data):
         """Control if data are a valid list of pixels.
 
-        Pixels can be of 3 types:
-            * black and white -> int
-            * RGB -> (int, int, int)
-            * RGBA -> (int, int, int, int)
+        Pixels could be one of these 3 types:
+            - black and white -> int
+            - RGB -> (int, int, int)
+            - RGBA -> (int, int, int, int)
 
         Args:
             data (list of list): data is an array of array that contains pixels.
@@ -421,7 +535,7 @@ class Image(object):
         Returns:
             Image
         """
-        self._pixels[row][col] = value
+        self._pixels[row].set_pixel(col, value)
         return self
 
     def get_pixel(self, row, col):
@@ -441,10 +555,9 @@ class Image(object):
         """Extract data.
 
         Returns:
-            list: all the pixels of the image. See 'check' function for more
-                details on pixels.
+            bytes: all pixels in bytes
         """
-        return self._pixels
+        return self._pixels()
 
     def load(self, file_name):
         """Open a TGA image.
@@ -494,28 +607,28 @@ class Image(object):
             self._header.image_height = dec_byte(image_file.read(2), 2)
             self._header.pixel_depht = dec_byte(image_file.read(1))
             self._header.image_descriptor = dec_byte(image_file.read(1))
+            self._first_pixel = self._header.image_descriptor
 
-            self._pixels = []
-            if self._header.image_type == 2 or\
-                    self._header.image_type == 3:
+            tmp = []
+            if self._header.image_type == 2 or self._header.image_type == 3:
                 for row in range(self._header.image_height):
-                    self._pixels.append([])
+                    tmp.append([])
                     for col in range(self._header.image_width):
                         if self._header.image_type == 3:
-                            self._pixels[row].append(
+                            tmp[row].append(
                                 dec_byte(image_file.read(1)))
                         elif self._header.image_type == 2:
                             if self._header.pixel_depht == 16:
-                                self._pixels[row].append(
+                                tmp[row].append(
                                     get_rgb_from_16(dec_byte(image_file.read(2), 2)))
                             elif self._header.pixel_depht == 24:
                                 c_b, c_g, c_r = multiple_dec_byte(
                                     image_file, 3)
-                                self._pixels[row].append((c_r, c_g, c_b))
+                                tmp[row].append((c_r, c_g, c_b))
                             elif self._header.pixel_depht == 32:
                                 c_b, c_g, c_r, alpha = multiple_dec_byte(
                                     image_file, 4)
-                                self._pixels[row].append(
+                                tmp[row].append(
                                     (c_r, c_g, c_b, alpha))
                         else:
                             raise ImageError(
@@ -523,17 +636,17 @@ class Image(object):
                                     self._header.image_type),
                                 'non_supported_type'
                             )
+
             ##
             # Decode
             #
-            elif self._header.image_type == 10 or\
-                    self._header.image_type == 11:
-                self._pixels.append([])
+            elif self._header.image_type == 10 or self._header.image_type == 11:
+                tmp.append([])
                 tot_pixels = self._header.image_height * self._header.image_width
                 pixel_count = 0
                 while pixel_count != tot_pixels:
-                    if len(self._pixels[-1]) == self._header.image_width:
-                        self._pixels.append([])
+                    if len(tmp[-1]) == self._header.image_width:
+                        tmp.append([])
                     repetition_count = dec_byte(image_file.read(1))
                     RLE = (repetition_count & 0b10000000) >> 7 == 1
                     count = (repetition_count & 0b01111111) + 1
@@ -561,24 +674,24 @@ class Image(object):
                                 'non_supported_type'
                             )
                         for num in range(count):
-                            self._pixels[-1].append(pixel)
+                            tmp[-1].append(pixel)
                     else:
                         for num in range(count):
                             if self._header.image_type == 11:
-                                self._pixels[-1].append(
+                                tmp[-1].append(
                                     dec_byte(image_file.read(1)))
                             elif self._header.image_type == 10:
                                 if self._header.pixel_depht == 16:
-                                    self._pixels[-1].append(
+                                    tmp[-1].append(
                                         get_rgb_from_16(dec_byte(image_file.read(2), 2)))
                                 elif self._header.pixel_depht == 24:
                                     c_b, c_g, c_r = multiple_dec_byte(
                                         image_file, 3, 1)
-                                    self._pixels[-1].append((c_r, c_g, c_b))
+                                    tmp[-1].append((c_r, c_g, c_b))
                                 elif self._header.pixel_depht == 32:
                                     c_b, c_g, c_r, alpha = multiple_dec_byte(
                                         image_file, 4, 1)
-                                    self._pixels[-1].append(
+                                    tmp[-1].append(
                                         (c_r, c_g, c_b, alpha))
                             else:
                                 raise ImageError(
@@ -586,6 +699,9 @@ class Image(object):
                                         self._header.image_type),
                                     'non_supported_type'
                                 )
+        
+        self._pixels = PixelMatrix(tmp)
+
         return self
 
     def save(self, file_name, original_format=False, force_16_bit=False,
